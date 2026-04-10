@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Robot - WiFi</title>
+</head>
+<body>
+    <h1>WiFi Management</h1>
+
+    <h2>Known Networks</h2>
+    <div id="networks">Loading...</div>
+
+    <h2>Add a Network</h2>
+    <form action="/wifi/add" method="POST">
+        SSID: <input type="text" name="ssid" required><br><br>
+        Password: <input type="password" name="password"><br><br>
+        <button type="submit">Add</button>
+    </form>
+
+    <script>
+        fetch('/wifi/list')
+            .then(function(r) { return r.json(); })
+            .then(function(networks) {
+                var div = document.getElementById('networks');
+                if (networks.length === 0) {
+                    div.innerHTML = '<p>No networks saved.</p>';
+                    return;
+                }
+                div.innerHTML = networks.map(function(n) {
+                    return '<div style="margin-bottom:12px">'
+                        + '<strong>' + n.ssid + '</strong>&nbsp;'
+                        + '<form action="/wifi/connect" method="POST" style="display:inline">'
+                        +   '<input type="hidden" name="ssid" value="' + n.ssid + '">'
+                        +   '<button type="submit">Connect</button>'
+                        + '</form>&nbsp;'
+                        + '<form action="/wifi/update" method="POST" style="display:inline">'
+                        +   '<input type="hidden" name="ssid" value="' + n.ssid + '">'
+                        +   '<input type="password" name="password" placeholder="New password" required>'
+                        +   '&nbsp;<button type="submit">Update password</button>'
+                        + '</form>&nbsp;'
+                        + '<form action="/wifi/delete" method="POST" style="display:inline">'
+                        +   '<input type="hidden" name="ssid" value="' + n.ssid + '">'
+                        +   '<button type="submit">Delete</button>'
+                        + '</form>'
+                        + '</div>';
+                }).join('');
+            });
+    </script>
+</body>
+</html>

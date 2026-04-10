@@ -2,6 +2,7 @@ from microdot import Microdot, Response, send_file
 import urandom
 
 from components.display import show_message
+from config import OTP_LENGTH
 
 app = Microdot()
 
@@ -12,7 +13,7 @@ async def index(request):
 @app.route('/forgot')
 async def forgot(request):
     global current_otp
-    current_otp = str(urandom.getrandbits(6))
+    current_otp = str(urandom.getrandbits(OTP_LENGTH))
     show_message("OTP Generated", current_otp)
 
     return send_file('templates/forgot.html')

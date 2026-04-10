@@ -1,0 +1,44 @@
+# --- Display ---
+OLED_SDA_PIN = 6
+OLED_SCL_PIN = 7
+OLED_I2C_FREQ_HZ = 100000
+OLED_WIDTH = 128
+OLED_HEIGHT = 32
+
+# --- Accelerometer ---
+ACCELEROMETER_SDA_PIN = 6
+ACCELEROMETER_SCL_PIN = 7
+
+# --- Ultrasound Sensor ---
+ULTRASOUND_SENSOR_TR_PIN =  15
+ULTRASOUND_SENSOR_EC_PIN =  23
+
+# --- Photo Sensor ---
+PHOTO_SENSOR_PIN = 3
+
+# --- Button ---
+BUTTON_PIN = 2
+
+# --- RGB Led ---
+RGB_RED_PIN = 10
+RGB_GREEN_PIN = 11
+RGB_BLUE_PIN = 21
+
+# --- Motors
+MOTOR_LEFT_F = 20
+MOTOR_LEFT_R = 22
+MOTOR_RIGHT_F = 19
+MOTOR_RIGHT_R = 18
+
+# --- Serial LED
+SERIAL_LED_PIN = 8
+
+# --- WiFi ---
+WIFI_TIMEOUT = 10
+AP_SSID = "RobotUi - Setup Access Point"
+AP_AUTHMODE = 0
+
+# --- Auth ---
+CONFIG_FILE = "config.json"
+OTP_LENGTH = 6
+

@@ -3,49 +3,44 @@ import time
 from config import WIFI_TIMEOUT, AP_SSID, AP_AUTHMODE
 
 
-def scan():
-    sta_if = network.WLAN(network.STA_IF)
-    sta_if.active(True)
-    return [net[0].decode() for net in sta_if.scan()]
+class WiFi:
 
+    def __init__(self):
+        self._sta = network.WLAN(network.STA_IF)
+        self._ap = network.WLAN(network.AP_IF)
 
-def scan_known(networks):
-    """Return the first network from the saved list that is currently visible."""
-    available = scan()
-    for net in networks:
-        if net["ssid"] in available:
-            return net
-    return None
+    def scan(self):
+        self._sta.active(True)
+        return [net[0].decode() for net in self._sta.scan()]
 
+    def scan_known(self, networks):
+        available = self.scan()
+        for net in networks:
+            if net["ssid"] in available:
+                return net
+        return None
 
-def connect(ssid, password, max_wait_time=WIFI_TIMEOUT):
-    sta_if = network.WLAN(network.STA_IF)
-    sta_if.active(True)
-    sta_if.connect(ssid, password)
+    def connect(self, ssid, password, timeout=WIFI_TIMEOUT):
+        self._sta.active(True)
+        self._sta.connect(ssid, password)
 
-    while max_wait_time > 0:
-        if sta_if.isconnected():
-            return sta_if.ifconfig()[0]
-        max_wait_time -= 1
-        time.sleep(1)
+        while timeout > 0:
+            if self._sta.isconnected():
+                return self._sta.ifconfig()[0]
+            timeout -= 1
+            time.sleep(1)
 
-    sta_if.active(False)
-    return False
+        self._sta.active(False)
+        return False
 
+    def start_ap(self, essid=AP_SSID):
+        self._ap.active(True)
+        self._ap.config(essid=essid, authmode=AP_AUTHMODE)
+        return self._ap.ifconfig()[0]
 
-def start_ap(essid=AP_SSID):
-    ap_if = network.WLAN(network.AP_IF)
-    ap_if.active(True)
-    ap_if.config(essid=essid, authmode=AP_AUTHMODE)
-    return ap_if.ifconfig()[0]
-
-
-def get_current_state():
-    sta = network.WLAN(network.STA_IF)
-    ap = network.WLAN(network.AP_IF)
-
-    if sta.active() and sta.isconnected():
-        return "WIFI", sta.ifconfig()[0]
-    elif ap.active():
-        return "AP", ap.ifconfig()[0]
-    return None, None
+    def get_current_state(self):
+        if self._sta.active() and self._sta.isconnected():
+            return "WIFI", self._sta.ifconfig()[0]
+        elif self._ap.active():
+            return "AP", self._ap.ifconfig()[0]
+        return None, None

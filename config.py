@@ -24,14 +24,16 @@ RGB_RED_PIN = 10
 RGB_GREEN_PIN = 11
 RGB_BLUE_PIN = 21
 
-# --- Motors
+# --- Motors ---
 MOTOR_LEFT_F = 20
 MOTOR_LEFT_R = 22
 MOTOR_RIGHT_F = 19
 MOTOR_RIGHT_R = 18
+MOTOR_PWM_FREQ = 15000
 
-# --- Serial LED
+# --- Serial LED ---
 SERIAL_LED_PIN = 8
+SERIAL_LED_COUNT = 3
 
 # --- WiFi ---
 WIFI_TIMEOUT = 10

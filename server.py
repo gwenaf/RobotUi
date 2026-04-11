@@ -4,12 +4,12 @@ import hashlib
 import ubinascii
 import json
 
-from components.display import show_message
-from components import wifi
 from config import OTP_LENGTH, CONFIG_FILE
 
 app = Microdot()
 
+_display = None
+_wifi = None
 _session_token = None
 _current_otp = None
 
@@ -74,7 +74,7 @@ async def login(request):
 async def forgot(request):
     global _current_otp
     _current_otp = ''.join([str(urandom.getrandbits(8) % 10) for _ in range(OTP_LENGTH)])
-    show_message("OTP:", _current_otp)
+    _display.show_message("OTP:", _current_otp)
     return send_file('templates/forgot.html')
 
 
@@ -182,12 +182,11 @@ async def wifi_connect(request):
     if not target:
         return _redirect('/wifi')
 
-    show_message("Connecting...", ssid)
-    ip = wifi.connect(target['ssid'], target['password'])
+    _display.show_message("Connecting...", ssid)
+    ip = _wifi.connect(target['ssid'], target['password'])
 
     if ip:
-        show_message("WiFi Mode", ip)
-        # AP connection will drop after switching; show new IP before it does
+        _display.show_message("WiFi Mode", ip)
         html = (
             '<!DOCTYPE html><html><head>'
             '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -199,10 +198,13 @@ async def wifi_connect(request):
         )
         return Response(html, headers={'Content-Type': 'text/html'})
 
-    show_message("Conn. Failed", ssid)
+    _display.show_message("Conn. Failed", ssid)
     return _redirect('/wifi')
 
 
-def start():
+def start(display, wifi):
+    global _display, _wifi
+    _display = display
+    _wifi = wifi
     print("Starting Web Server...")
     app.run(port=80)

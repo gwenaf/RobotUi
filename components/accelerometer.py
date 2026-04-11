@@ -1,5 +1,5 @@
 from machine import Pin, I2C
-from lib.MPU6050_my_library import MPU6050
+from lib.mpu6050 import MPU6050
 from config import ACCELEROMETER_SDA_PIN, ACCELEROMETER_SCL_PIN, OLED_I2C_FREQ_HZ
 import time
 

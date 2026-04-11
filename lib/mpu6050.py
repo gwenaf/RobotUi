@@ -1,7 +1,7 @@
 import machine
 
 
-class Accelerometer:
+class MPU6050:
     def __init__(self, i2c, addr=0x68):
         self.iic = i2c
         self.addr = addr

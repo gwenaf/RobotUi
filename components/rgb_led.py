@@ -1,18 +1,21 @@
-from machine import Pin, PWM
+from machine import Pin
 from config import RGB_RED_PIN, RGB_GREEN_PIN, RGB_BLUE_PIN
 
 
 class RgbLed:
+    """Digital RGB LED (on/off per channel, no PWM needed)."""
 
     def __init__(self):
-        self._red = PWM(Pin(RGB_RED_PIN), freq=1000, duty_u16=0)
-        self._green = PWM(Pin(RGB_GREEN_PIN), freq=1000, duty_u16=0)
-        self._blue = PWM(Pin(RGB_BLUE_PIN), freq=1000, duty_u16=0)
+        self._red = Pin(RGB_RED_PIN, Pin.OUT, value=0)
+        self._green = Pin(RGB_GREEN_PIN, Pin.OUT, value=0)
+        self._blue = Pin(RGB_BLUE_PIN, Pin.OUT, value=0)
 
     def set_color(self, r, g, b):
-        self._red.duty_u16(r * 257)
-        self._green.duty_u16(g * 257)
-        self._blue.duty_u16(b * 257)
+        self._red.value(1 if r > 127 else 0)
+        self._green.value(1 if g > 127 else 0)
+        self._blue.value(1 if b > 127 else 0)
 
     def off(self):
-        self.set_color(0, 0, 0)
+        self._red.value(0)
+        self._green.value(0)
+        self._blue.value(0)

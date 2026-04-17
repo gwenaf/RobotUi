@@ -5,15 +5,10 @@ class MPU6050:
     def __init__(self, i2c, addr=0x68):
         self.iic = i2c
         self.addr = addr
-        self.iic.start()
         self.iic.writeto(self.addr, bytearray([107, 0]))
-        self.iic.stop()
 
     def get_raw_values(self):
-        self.iic.start()
-        a = self.iic.readfrom_mem(self.addr, 0x3B, 14)
-        self.iic.stop()
-        return a
+        return self.iic.readfrom_mem(self.addr, 0x3B, 14)
 
     def get_ints(self):
         b = self.get_raw_values()

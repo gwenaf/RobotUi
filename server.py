@@ -10,6 +10,12 @@ app = Microdot()
 
 _display = None
 _wifi = None
+_motors = None
+_ultrasound = None
+_photo = None
+_rgb = None
+_serial = None
+_accel = None
 _session_token = None
 _current_otp = None
 
@@ -63,7 +69,7 @@ async def login(request):
     form = request.form or {}
     if _hash(form.get('pwd', '')) == config['admin_pass']:
         _session_token = _generate_token()
-        response = _redirect('/wifi')
+        response = _redirect('/control')
         response.set_cookie('session', _session_token)
         return response
 
@@ -114,6 +120,19 @@ async def wifi_list(request):
     config = _load_config()
     ssids = [{'ssid': n['ssid']} for n in config.get('networks', [])]
     return Response(json.dumps(ssids), headers={'Content-Type': 'application/json'})
+
+
+@app.route('/wifi/scan')
+async def wifi_scan(request):
+    if not _is_authenticated(request):
+        return Response('Unauthorized', status_code=401)
+    try:
+        networks = _wifi.scan_detailed()
+    except Exception as e:
+        return Response(json.dumps({'error': str(e)}), status_code=500,
+                        headers={'Content-Type': 'application/json'})
+    return Response(json.dumps(networks),
+                    headers={'Content-Type': 'application/json'})
 
 
 @app.route('/wifi/add', methods=['POST'])
@@ -202,9 +221,110 @@ async def wifi_connect(request):
     return _redirect('/wifi')
 
 
-def start(display, wifi):
-    global _display, _wifi
+# ---------------------------------------------------------------------------
+# Robot control routes (authentication required)
+# ---------------------------------------------------------------------------
+
+@app.route('/control')
+async def control_page(request):
+    if not _is_authenticated(request):
+        return _redirect('/')
+    return send_file('templates/control.html')
+
+
+@app.route('/control/move', methods=['POST'])
+async def control_move(request):
+    if not _is_authenticated(request):
+        return Response('Unauthorized', status_code=401)
+    if _motors is None:
+        return Response(json.dumps({'error': 'motors unavailable'}),
+                        headers={'Content-Type': 'application/json'})
+
+    data = request.json or {}
+    action = data.get('action', 'stop')
+    speed = data.get('speed', 50)
+
+    if action == 'forward':
+        _motors.forward(speed)
+    elif action == 'backward':
+        _motors.backward(speed)
+    elif action == 'left':
+        _motors.turn_left(speed)
+    elif action == 'right':
+        _motors.turn_right(speed)
+    else:
+        _motors.stop()
+
+    return Response(json.dumps({'ok': True}),
+                    headers={'Content-Type': 'application/json'})
+
+
+@app.route('/control/sensors')
+async def control_sensors(request):
+    if not _is_authenticated(request):
+        return Response('Unauthorized', status_code=401)
+
+    data = {}
+
+    if _ultrasound:
+        dist = _ultrasound.distance_cm()
+        data['distance'] = round(dist, 1) if dist >= 0 else -1
+
+    if _photo:
+        data['light'] = round(_photo.read_percent(), 1)
+
+    if _accel:
+        try:
+            raw = _accel.read_all()
+            data['ax'] = round(raw.get('ax', 0), 2)
+            data['ay'] = round(raw.get('ay', 0), 2)
+            data['az'] = round(raw.get('az', 0), 2)
+            data['gz'] = round(raw.get('gz', 0), 2)
+        except Exception:
+            pass
+
+    return Response(json.dumps(data),
+                    headers={'Content-Type': 'application/json'})
+
+
+@app.route('/control/rgb', methods=['POST'])
+async def control_rgb(request):
+    if not _is_authenticated(request):
+        return Response('Unauthorized', status_code=401)
+    if _rgb is None:
+        return Response(json.dumps({'error': 'rgb unavailable'}),
+                        headers={'Content-Type': 'application/json'})
+
+    data = request.json or {}
+    _rgb.set_color(data.get('r', 0), data.get('g', 0), data.get('b', 0))
+    return Response(json.dumps({'ok': True}),
+                    headers={'Content-Type': 'application/json'})
+
+
+@app.route('/control/serial', methods=['POST'])
+async def control_serial(request):
+    if not _is_authenticated(request):
+        return Response('Unauthorized', status_code=401)
+    if _serial is None:
+        return Response(json.dumps({'error': 'serial leds unavailable'}),
+                        headers={'Content-Type': 'application/json'})
+
+    data = request.json or {}
+    _serial.set_all(data.get('r', 0), data.get('g', 0), data.get('b', 0))
+    return Response(json.dumps({'ok': True}),
+                    headers={'Content-Type': 'application/json'})
+
+
+def start(display, wifi, components=None):
+    global _display, _wifi, _motors, _ultrasound, _photo, _rgb, _serial, _accel
     _display = display
     _wifi = wifi
+    if components:
+        _motors = components.get('motors')
+        _ultrasound = components.get('ultrasound')
+        _photo = components.get('photo')
+        _rgb = components.get('rgb')
+        _serial = components.get('serial')
+        _accel = components.get('accel')
     print("Starting Web Server...")
     app.run(port=80)

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <title>Robot Control</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background: #1a1a2e; color: #eee; padding: 12px; }
+        h1 { text-align: center; font-size: 1.3em; margin-bottom: 10px; }
+        h2 { font-size: 1em; margin-bottom: 8px; color: #aaa; }
+
+        .section { background: #16213e; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+
+        /* Sensors */
+        .sensors-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .sensor-item { background: #0f3460; padding: 8px; border-radius: 6px; text-align: center; }
+        .sensor-item .val { font-size: 1.4em; font-weight: bold; color: #e94560; }
+        .sensor-item .lbl { font-size: 0.75em; color: #aaa; }
+
+        /* D-Pad */
+        .dpad { display: grid; grid-template-areas: ". fwd ." "left stop right" ". bwd .";
+                grid-template-columns: 1fr 1fr 1fr; gap: 8px; max-width: 280px; margin: 0 auto; }
+        .dpad button {
+            padding: 20px 0; border: none; border-radius: 10px; font-size: 1.1em;
+            font-weight: bold; color: #fff; cursor: pointer; touch-action: none;
+            -webkit-user-select: none; user-select: none;
+        }
+        .btn-fwd { grid-area: fwd; background: #0f3460; }
+        .btn-bwd { grid-area: bwd; background: #0f3460; }
+        .btn-left { grid-area: left; background: #0f3460; }
+        .btn-right { grid-area: right; background: #0f3460; }
+        .btn-stop { grid-area: stop; background: #e94560; }
+        .dpad button:active, .dpad button.active { background: #e94560; }
+        .btn-stop:active, .btn-stop.active { background: #ff2e63; }
+
+        /* Speed slider */
+        .speed-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .speed-row input[type=range] { flex: 1; }
+        .speed-row .speed-val { min-width: 40px; text-align: center; font-weight: bold; }
+
+        /* LED controls */
+        .led-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+        .led-row label { min-width: 60px; }
+        .led-row input[type=color] { width: 50px; height: 36px; border: none; cursor: pointer; }
+        .led-row button, .led-off { background: #e94560; color: #fff; border: none;
+                                     padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<h1>Robot Control</h1>
+<p style="text-align:center;margin-bottom:10px"><a href="/wifi" style="color:#e94560">WiFi Settings</a></p>
+
+<!-- Sensors -->
+<div class="section">
+    <h2>Sensors</h2>
+    <div class="sensors-grid">
+        <div class="sensor-item"><div class="val" id="s-dist">--</div><div class="lbl">Distance (cm)</div></div>
+        <div class="sensor-item"><div class="val" id="s-light">--</div><div class="lbl">Light (%)</div></div>
+        <div class="sensor-item"><div class="val" id="s-ax">--</div><div class="lbl">Accel X</div></div>
+        <div class="sensor-item"><div class="val" id="s-ay">--</div><div class="lbl">Accel Y</div></div>
+        <div class="sensor-item"><div class="val" id="s-az">--</div><div class="lbl">Accel Z</div></div>
+        <div class="sensor-item"><div class="val" id="s-gz">--</div><div class="lbl">Gyro Z</div></div>
+    </div>
+</div>
+
+<!-- Motor control -->
+<div class="section">
+    <h2>Drive</h2>
+    <div class="dpad">
+        <button class="btn-fwd" data-action="forward">FWD</button>
+        <button class="btn-left" data-action="left">LEFT</button>
+        <button class="btn-stop" data-action="stop">STOP</button>
+        <button class="btn-right" data-action="right">RIGHT</button>
+        <button class="btn-bwd" data-action="backward">BWD</button>
+    </div>
+    <div class="speed-row">
+        <label>Speed</label>
+        <input type="range" id="speed" min="10" max="100" value="50">
+        <span class="speed-val" id="speed-val">50%</span>
+    </div>
+</div>
+
+<!-- LED controls -->
+<div class="section">
+    <h2>RGB LED</h2>
+    <div class="led-row">
+        <input type="color" id="rgb-color" value="#ff0000">
+        <button onclick="sendRgb()">Apply</button>
+        <button class="led-off" onclick="sendRgb('#000000')">Off</button>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Serial LEDs</h2>
+    <div class="led-row">
+        <input type="color" id="serial-color" value="#0000ff">
+        <button onclick="sendSerial()">All</button>
+        <button class="led-off" onclick="sendSerial('#000000')">Off</button>
+    </div>
+</div>
+
+<script>
+    var speed = document.getElementById('speed');
+    var speedVal = document.getElementById('speed-val');
+
+    speed.addEventListener('input', function() {
+        speedVal.textContent = speed.value + '%';
+    });
+
+    // --- Motor D-Pad: hold to move, release to stop ---
+    var buttons = document.querySelectorAll('.dpad button');
+    for (var i = 0; i < buttons.length; i++) {
+        (function(btn) {
+            var action = btn.getAttribute('data-action');
+
+            function start(e) {
+                e.preventDefault();
+                btn.classList.add('active');
+                sendMove(action);
+            }
+            function end(e) {
+                e.preventDefault();
+                btn.classList.remove('active');
+                if (action !== 'stop') sendMove('stop');
+            }
+
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            btn.addEventListener('mouseleave', end);
+            btn.addEventListener('touchstart', start);
+            btn.addEventListener('touchend', end);
+            btn.addEventListener('touchcancel', end);
+        })(buttons[i]);
+    }
+
+    function sendMove(action) {
+        fetch('/control/move', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action: action, speed: parseInt(speed.value)})
+        });
+    }
+
+    // --- Sensors polling ---
+    function updateSensors() {
+        fetch('/control/sensors')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.distance !== undefined) document.getElementById('s-dist').textContent = d.distance;
+                if (d.light !== undefined) document.getElementById('s-light').textContent = d.light;
+                if (d.ax !== undefined) document.getElementById('s-ax').textContent = d.ax;
+                if (d.ay !== undefined) document.getElementById('s-ay').textContent = d.ay;
+                if (d.az !== undefined) document.getElementById('s-az').textContent = d.az;
+                if (d.gz !== undefined) document.getElementById('s-gz').textContent = d.gz;
+            })
+            .catch(function() {});
+    }
+    setInterval(updateSensors, 600);
+
+    // --- LED controls ---
+    function hexToRgb(hex) {
+        hex = hex.replace('#', '');
+        return {
+            r: parseInt(hex.substring(0, 2), 16),
+            g: parseInt(hex.substring(2, 4), 16),
+            b: parseInt(hex.substring(4, 6), 16)
+        };
+    }
+
+    function sendRgb(override) {
+        var c = hexToRgb(override || document.getElementById('rgb-color').value);
+        fetch('/control/rgb', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(c)
+        });
+    }
+
+    function sendSerial(override) {
+        var c = hexToRgb(override || document.getElementById('serial-color').value);
+        fetch('/control/serial', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(c)
+        });
+    }
+</script>
+
+</body>
+</html>

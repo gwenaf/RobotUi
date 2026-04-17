@@ -11,7 +11,30 @@ class WiFi:
 
     def scan(self):
         self._sta.active(True)
+        time.sleep(2)
         return [net[0].decode() for net in self._sta.scan()]
+
+    def scan_detailed(self):
+        """Return list of dicts: {ssid, rssi, channel, secured}."""
+        self._sta.active(True)
+        time.sleep(2)
+        result = []
+        for net in self._sta.scan():
+            try:
+                ssid = net[0].decode()
+            except UnicodeError:
+                continue
+            if not ssid:
+                continue
+            result.append({
+                'ssid': ssid,
+                'rssi': net[3],
+                'channel': net[2],
+                'secured': net[4] != 0,
+            })
+        # Sort by signal strength (strongest first)
+        result.sort(key=lambda n: n['rssi'], reverse=True)
+        return result
 
     def scan_known(self, networks):
         available = self.scan()

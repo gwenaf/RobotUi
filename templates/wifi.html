@@ -3,21 +3,60 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Robot - WiFi</title>
+    <style>
+        body { font-family: sans-serif; max-width: 720px; margin: 0 auto; padding: 12px; }
+        h1, h2 { margin-top: 20px; }
+        .net-row { border-bottom: 1px solid #ddd; padding: 8px 0; }
+        .net-row strong { display: inline-block; min-width: 180px; }
+        .signal-bar { display: inline-block; width: 80px; height: 10px;
+                      background: #eee; border-radius: 5px; overflow: hidden;
+                      vertical-align: middle; margin: 0 6px; }
+        .signal-fill { height: 100%; background: #4caf50; }
+        .signal-weak { background: #f44336; }
+        .signal-ok   { background: #ff9800; }
+        .signal-good { background: #4caf50; }
+        .lock { color: #888; }
+        button { cursor: pointer; }
+        form { display: inline; }
+    </style>
 </head>
 <body>
     <h1>WiFi Management</h1>
+    <p><a href="/control">Back to Control</a></p>
 
     <h2>Known Networks</h2>
     <div id="networks">Loading...</div>
 
+    <h2>Available Networks</h2>
+    <button onclick="scanNetworks()">Scan</button>
+    <div id="scan-results" style="margin-top:10px"></div>
+
     <h2>Add a Network</h2>
     <form action="/wifi/add" method="POST">
-        SSID: <input type="text" name="ssid" required><br><br>
+        SSID: <input type="text" name="ssid" id="add-ssid" required><br><br>
         Password: <input type="password" name="password"><br><br>
         <button type="submit">Add</button>
     </form>
 
     <script>
+        function rssiToQuality(rssi) {
+            var q = 2 * (rssi + 100);
+            if (q < 0) q = 0;
+            if (q > 100) q = 100;
+            return q;
+        }
+
+        function signalClass(q) {
+            if (q < 40) return 'signal-weak';
+            if (q < 70) return 'signal-ok';
+            return 'signal-good';
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
         fetch('/wifi/list')
             .then(function(r) { return r.json(); })
             .then(function(networks) {
@@ -27,24 +66,56 @@
                     return;
                 }
                 div.innerHTML = networks.map(function(n) {
-                    return '<div style="margin-bottom:12px">'
-                        + '<strong>' + n.ssid + '</strong>&nbsp;'
-                        + '<form action="/wifi/connect" method="POST" style="display:inline">'
-                        +   '<input type="hidden" name="ssid" value="' + n.ssid + '">'
+                    var ssid = escapeHtml(n.ssid);
+                    return '<div class="net-row">'
+                        + '<strong>' + ssid + '</strong>'
+                        + '<form action="/wifi/connect" method="POST">'
+                        +   '<input type="hidden" name="ssid" value="' + ssid + '">'
                         +   '<button type="submit">Connect</button>'
                         + '</form>&nbsp;'
-                        + '<form action="/wifi/update" method="POST" style="display:inline">'
-                        +   '<input type="hidden" name="ssid" value="' + n.ssid + '">'
+                        + '<form action="/wifi/update" method="POST">'
+                        +   '<input type="hidden" name="ssid" value="' + ssid + '">'
                         +   '<input type="password" name="password" placeholder="New password" required>'
-                        +   '&nbsp;<button type="submit">Update password</button>'
+                        +   '<button type="submit">Update</button>'
                         + '</form>&nbsp;'
-                        + '<form action="/wifi/delete" method="POST" style="display:inline">'
-                        +   '<input type="hidden" name="ssid" value="' + n.ssid + '">'
+                        + '<form action="/wifi/delete" method="POST">'
+                        +   '<input type="hidden" name="ssid" value="' + ssid + '">'
                         +   '<button type="submit">Delete</button>'
                         + '</form>'
                         + '</div>';
                 }).join('');
             });
+
+        function scanNetworks() {
+            var div = document.getElementById('scan-results');
+            div.innerHTML = 'Scanning...';
+            fetch('/wifi/scan')
+                .then(function(r) { return r.json(); })
+                .then(function(nets) {
+                    if (!nets || nets.length === 0) {
+                        div.innerHTML = '<p>No networks found.</p>';
+                        return;
+                    }
+                    div.innerHTML = nets.map(function(n) {
+                        var ssid = escapeHtml(n.ssid);
+                        var q = rssiToQuality(n.rssi);
+                        var cls = signalClass(q);
+                        var lock = n.secured ? '<span class="lock">[locked]</span> ' : '';
+                        return '<div class="net-row">'
+                            + '<strong>' + ssid + '</strong>'
+                            + lock
+                            + '<span class="signal-bar"><span class="signal-fill ' + cls
+                            + '" style="width:' + q + '%"></span></span>'
+                            + q + '% (' + n.rssi + ' dBm, ch ' + n.channel + ') '
+                            + '<button onclick="document.getElementById(\'add-ssid\').value=\''
+                            + ssid.replace(/'/g, "\\'") + '\';window.scrollTo(0,document.body.scrollHeight)">Use</button>'
+                            + '</div>';
+                    }).join('');
+                })
+                .catch(function(e) {
+                    div.innerHTML = '<p>Scan failed: ' + e + '</p>';
+                });
+        }
     </script>
 </body>
 </html>
